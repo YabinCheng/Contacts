@@ -1,0 +1,88 @@
+class BuildSecondarySectionIndexerThread extends Thread {
+        private MatrixCursor mCursor;
+
+        BuildSecondarySectionIndexerThread(Cursor cursor) {
+            super("incall-contact-index");
+            mCursor = new MatrixCursor(new String[] {
+                Contacts.SORT_KEY_PRIMARY, Contacts.DISPLAY_NAME_PRIMARY
+            });
+            cursor.moveToPosition(-1);
+            while (cursor.moveToNext()) {
+                mCursor.addRow(new String[] {
+                    cursor.getString(ContactsListAdapter.CONTACT_LIST_COLUMN_SORT_KEY),
+                    cursor.getString(ContactsListAdapter.CONTACT_LIST_COLUMN_DISPLAY_NAME)
+                });
+            }
+            cursor.moveToPosition(-1);
+        }
+        @Override
+        public void run() {
+            super.run();
+            mSecondarySections.clear();
+            mSecondaryCounts.clear();
+            if (mCursor != null) {
+                try {
+                    mCursor.moveToPosition(-1);
+                    ArrayList<String> secondarySections = new ArrayList<String>();
+                    ArrayList<Integer> secondaryCounts = new ArrayList<Integer>();
+                    String section = null;
+                    int j = 0;
+                    int index = 0;
+                    while (mCursor.moveToNext()) {
+                        String sortKey = mCursor.getString(0);
+                        String displayName = mCursor.getString(1);
+                        if (displayName == null || displayName.length() == 0) {
+                            displayName = "?";
+                        }
+                        String nowSection;
+                        if (sortKey == null || sortKey.length() == 0) {
+                            nowSection = "#";
+                        } else {
+                            nowSection = sortKey.substring(0, 1).toUpperCase();
+                        }
+                        if (!Character.isLetter(nowSection.charAt(0))) {
+                            nowSection = "#";
+                        }
+                        if (section == null) {
+                            section = nowSection;
+                        }
+                        String nowSecondarySection = displayName.substring(0, 1).toUpperCase();
+
+                        if (!nowSection.equals(section)) {
+                            mSecondarySections.put(section.toUpperCase(), secondarySections);
+                            mSecondaryCounts.put(section.toUpperCase(), secondaryCounts);
+                            section = nowSection;
+                            j = 0;
+                            index = 0;
+                            secondarySections = new ArrayList<String>();
+                            secondaryCounts = new ArrayList<Integer>();
+                        }
+
+                        if (j == 0) {
+                            secondarySections.add(nowSecondarySection);
+                            secondaryCounts.add(1);
+                            j = j + 1;
+                            continue;
+                        }
+                        if (!nowSecondarySection.equals(secondarySections.get(index))) {
+                            index = index + 1;
+                            secondarySections.add(nowSecondarySection);
+                            secondaryCounts.add(1);
+                            continue;
+                        }
+                        if (nowSecondarySection.equals(secondarySections.get(index))) {
+                            secondaryCounts.set(index, secondaryCounts.get(index) + 1);
+                        }
+                    }
+
+                    if (section != null) {
+                        mSecondarySections.put(section.toUpperCase(), secondarySections);
+                        mSecondaryCounts.put(section.toUpperCase(), secondaryCounts);
+                    }
+                } finally {
+                    mCursor.close();
+                }
+            }
+        }
+
+    }
